@@ -58,6 +58,44 @@ class WeatherProfile:
 
 
 @dataclass
+class ForecastData:
+    """Represents a time-series surface forecast."""
+    latitude: float
+    longitude: float
+    elevation: float
+
+    # Time labels (ISO strings)
+    times: List[str] = field(default_factory=list)
+
+    # Surface weather variables
+    temperature_2m: List[Optional[float]] = field(default_factory=list)
+    dew_point_2m: List[Optional[float]] = field(default_factory=list)
+    wind_speed_10m: List[Optional[float]] = field(default_factory=list)
+    wind_direction_10m: List[Optional[int]] = field(default_factory=list)
+    wind_gusts_10m: List[Optional[float]] = field(default_factory=list)
+    precipitation: List[Optional[float]] = field(default_factory=list)
+    precipitation_probability: List[Optional[int]] = field(default_factory=list)
+    weather_code: List[Optional[int]] = field(default_factory=list)
+    cloud_cover: List[Optional[int]] = field(default_factory=list)
+    cloud_cover_low: List[Optional[int]] = field(default_factory=list)
+    cloud_cover_mid: List[Optional[int]] = field(default_factory=list)
+    cloud_cover_high: List[Optional[int]] = field(default_factory=list)
+    pressure_msl: List[Optional[float]] = field(default_factory=list)
+
+    @property
+    def num_hours(self) -> int:
+        return len(self.times)
+
+
+@dataclass
+class ForecastDataResponse:
+    """Response for forecast data."""
+    forecast: Optional[ForecastData] = None
+    error: Optional[str] = None
+    api_metadata: dict = field(default_factory=dict)
+
+
+@dataclass
 class WeatherDataResponse:
     """Response from the weather API."""
     profile: Optional[WeatherProfile] = None

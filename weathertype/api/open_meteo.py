@@ -4,7 +4,7 @@ import requests
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
-from weathertype.api.models import WeatherProfile, WeatherDataResponse
+from weathertype.api.models import WeatherProfile, WeatherDataResponse, ForecastData, ForecastDataResponse
 
 
 class OpenMeteoClient:
@@ -150,6 +150,112 @@ class OpenMeteoClient:
             wind_speeds=wind_speeds,
             wind_directions=wind_directions,
             time=time_str,
+        )
+
+    def get_forecast_data(
+        self,
+        latitude: float,
+        longitude: float,
+        hours: int = 36,
+    ) -> ForecastDataResponse:
+        """Fetch hourly surface forecast data for a time-series plot.
+
+        Args:
+            latitude: Latitude of the location
+            longitude: Longitude of the location
+            hours: Number of forecast hours (default 36)
+        """
+        cache_key = f"forecast_{latitude},{longitude},{hours}"
+        if self.cache_responses and cache_key in self._cache:
+            return ForecastDataResponse(
+                forecast=self._parse_forecast(self._cache[cache_key], latitude, longitude, hours),
+                api_metadata={"cached": True},
+            )
+
+        try:
+            hourly_vars = [
+                "temperature_2m",
+                "dewpoint_2m",
+                "windspeed_10m",
+                "winddirection_10m",
+                "windgusts_10m",
+                "precipitation",
+                "precipitation_probability",
+                "weathercode",
+                "cloudcover",
+                "cloudcover_low",
+                "cloudcover_mid",
+                "cloudcover_high",
+                "pressure_msl",
+            ]
+
+            params = {
+                "latitude": latitude,
+                "longitude": longitude,
+                "hourly": ",".join(hourly_vars),
+                "forecast_days": 3,
+                "timezone": "auto",
+            }
+
+            response = requests.get(self.BASE_URL, params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+
+            if self.cache_responses:
+                self._cache[cache_key] = data
+
+            return ForecastDataResponse(
+                forecast=self._parse_forecast(data, latitude, longitude, hours),
+                api_metadata={
+                    "timestamp": datetime.now().isoformat(),
+                    "cached": False,
+                    "elevation": data.get("elevation"),
+                    "timezone": data.get("timezone"),
+                },
+            )
+
+        except requests.exceptions.RequestException as e:
+            return ForecastDataResponse(error=str(e))
+
+    def _parse_forecast(
+        self,
+        data: Dict[str, Any],
+        latitude: float,
+        longitude: float,
+        hours: int,
+    ) -> ForecastData:
+        """Parse Open-Meteo response into ForecastData."""
+        hourly = data.get("hourly", {})
+        all_times = hourly.get("time", [])
+
+        # Start from the current hour
+        now = datetime.now()
+        start_idx = min(now.hour, len(all_times) - 1) if all_times else 0
+        end_idx = min(start_idx + hours, len(all_times))
+        times = all_times[start_idx:end_idx]
+
+        def _get(key: str) -> list:
+            vals = hourly.get(key, [])
+            return vals[start_idx:end_idx] if vals else [None] * len(times)
+
+        return ForecastData(
+            latitude=latitude,
+            longitude=longitude,
+            elevation=data.get("elevation", 0.0),
+            times=times,
+            temperature_2m=_get("temperature_2m"),
+            dew_point_2m=_get("dewpoint_2m"),
+            wind_speed_10m=_get("windspeed_10m"),
+            wind_direction_10m=[int(v) if v is not None else None for v in _get("winddirection_10m")],
+            wind_gusts_10m=_get("windgusts_10m"),
+            precipitation=_get("precipitation"),
+            precipitation_probability=[int(v) if v is not None else None for v in _get("precipitation_probability")],
+            weather_code=[int(v) if v is not None else None for v in _get("weathercode")],
+            cloud_cover=[int(v) if v is not None else None for v in _get("cloudcover")],
+            cloud_cover_low=[int(v) if v is not None else None for v in _get("cloudcover_low")],
+            cloud_cover_mid=[int(v) if v is not None else None for v in _get("cloudcover_mid")],
+            cloud_cover_high=[int(v) if v is not None else None for v in _get("cloudcover_high")],
+            pressure_msl=_get("pressure_msl"),
         )
 
     def clear_cache(self) -> None:

@@ -33,6 +33,9 @@ python -m weathertype.main -l Chicago --hodogram
 python -m weathertype.main -l Chicago --meteograph
 python -m weathertype.main -l Chicago --summary --table
 
+# 36-hour forecast timeline
+python -m weathertype.main -l Chicago --forecast
+
 # Specific forecast hour (0-23)
 python -m weathertype.main -l Chicago --hour 18
 
@@ -62,6 +65,17 @@ Wind vectors plotted as u/v components, connected from surface to upper atmosphe
 
 Vertical profiles of temperature (red), dew point (blue), and wind speed (green) against log-pressure.
 
+### 36-Hour Forecast
+
+Multi-panel time-series display starting from the current hour:
+
+- **Temperature & Dew Point** -- sparkline chart (red/blue)
+- **Wind Speed & Gusts** -- sustained (green) and gusts (yellow) with direction arrows
+- **Precipitation** -- bar chart with type indicators (rain/snow/freezing) and probability
+- **Cloud Cover** -- low/mid/high layers using density fill characters
+- **Pressure** -- mean sea-level pressure trend (magenta)
+- **Weather Summary** -- WMO weather code timeline with legend
+
 ### Summary
 
 Key meteorological parameters: surface conditions, LCL, potential temperature, equivalent potential temperature, CAPE/CIN, stability classification, inversion layers, bulk shear, and mean wind.
@@ -86,6 +100,7 @@ weathertype/
     skewt.py               # Skew-T Log-P diagram
     hodogram.py            # Wind hodogram
     meteograph.py          # Vertical profile charts
+    forecast.py            # 36-hour forecast timeline
   utils/
     units.py               # Unit conversions
     coordinates.py         # Geocoding via Open-Meteo

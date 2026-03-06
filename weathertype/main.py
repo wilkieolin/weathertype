@@ -24,6 +24,7 @@ from weathertype.calculations.meteograph import (
 from weathertype.visualizations.skewt import SkewTPlotter
 from weathertype.visualizations.hodogram import HodogramPlotter
 from weathertype.visualizations.meteograph import MeteographPlotter
+from weathertype.visualizations.forecast import ForecastPlotter
 
 
 def print_header(profile: WeatherProfile, location_name: str = "") -> None:
@@ -164,6 +165,26 @@ def run_meteograph(profile: WeatherProfile) -> None:
     print()
 
 
+def run_forecast(latitude: float, longitude: float, location_name: str) -> None:
+    """Fetch and display the 36-hour forecast."""
+    print(f"Fetching 36-hour forecast for {location_name}...")
+    client = OpenMeteoClient()
+    response = client.get_forecast_data(latitude, longitude, hours=36)
+
+    if response.error:
+        print(f"Error: {response.error}", file=sys.stderr)
+        return
+
+    forecast = response.forecast
+    if forecast is None or forecast.num_hours == 0:
+        print("Error: No forecast data available", file=sys.stderr)
+        return
+
+    plotter = ForecastPlotter()
+    print(plotter.plot_forecast(forecast))
+    print()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="weathertype",
@@ -194,6 +215,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     display.add_argument(
         "--table", action="store_true", help="Show data table"
+    )
+    display.add_argument(
+        "--forecast", action="store_true", help="Show 36-hour forecast"
     )
     display.add_argument(
         "--all", "-a", action="store_true", help="Show all visualizations"
@@ -247,7 +271,7 @@ def main(argv=None) -> int:
         return 1
 
     # If no display flags given, show all
-    show_all = args.all or not any([args.skewt, args.hodogram, args.meteograph, args.summary, args.table])
+    show_all = args.all or not any([args.skewt, args.hodogram, args.meteograph, args.summary, args.table, args.forecast])
 
     # Fetch data
     print(f"Fetching weather data for {location_name}...")
@@ -282,6 +306,9 @@ def main(argv=None) -> int:
 
     if show_all or args.meteograph:
         run_meteograph(profile)
+
+    if show_all or args.forecast:
+        run_forecast(latitude, longitude, location_name)
 
     return 0
 
