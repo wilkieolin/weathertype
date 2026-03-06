@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "weathertype"
+version = "0.1.0"
+description = "CLI weather visualization with Skew-T, hodogram, and meteograph displays"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+    "numpy>=1.24.0",
+]
+
+[project.scripts]
+weathertype = "weathertype.main:main"
