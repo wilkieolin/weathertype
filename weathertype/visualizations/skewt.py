@@ -22,6 +22,7 @@ class SkewTPlotter:
         self.pressure_max = 1050  # hPa (bottom)
         self.temp_min = -80       # °C  (will be auto-scaled)
         self.temp_max = 50        # °C  (will be auto-scaled)
+        self._skew_amount = 30    # °C of skew offset at top of diagram
 
     # ------------------------------------------------------------------ #
     # coordinate transforms
@@ -37,11 +38,9 @@ class SkewTPlotter:
     def _x(self, temperature: float, pressure: float) -> float:
         """Map temperature to x-fraction with skew applied."""
         y_frac = self._y(pressure)
-        # Scale the skew proportionally to the temperature range
-        t_range = self.temp_max - self.temp_min
-        skew = (t_range * 0.3) * (1.0 - y_frac)
+        skew = self._skew_amount * (1.0 - y_frac)
         t_skewed = temperature + skew
-        return (t_skewed - self.temp_min) / t_range
+        return (t_skewed - self.temp_min) / (self.temp_max - self.temp_min)
 
     def _to_grid(self, x_frac: float, y_frac: float) -> Tuple[int, int]:
         """Convert fractions to grid column, row."""
@@ -65,16 +64,21 @@ class SkewTPlotter:
         if len(temperatures) != len(pressures):
             raise ValueError("temperatures and pressures must have same length")
 
-        # --- auto-scale x-axis to data range ---
+        # --- auto-scale x-axis tightly to data range ---
         all_temps = temperatures + dew_points
-        data_min = min(all_temps)
-        data_max = max(all_temps)
-        self.temp_min = math.floor((data_min - 15) / 10) * 10
-        self.temp_max = math.ceil((data_max + 15) / 10) * 10
-        if self.temp_max - self.temp_min < 40:
-            mid = (self.temp_max + self.temp_min) / 2
-            self.temp_min = mid - 20
-            self.temp_max = mid + 20
+        data_range = max(all_temps) - min(all_temps)
+        # Skew proportional to data spread, with a reasonable minimum
+        self._skew_amount = max(data_range * 0.4, 10)
+
+        # Compute skewed temperature at every data point to find true extent
+        skewed = []
+        for t, p in zip(temperatures + dew_points, list(pressures) + list(pressures)):
+            y_frac = self._y(p)
+            skewed.append(t + self._skew_amount * (1.0 - y_frac))
+
+        pad = 5  # °C padding on each side
+        self.temp_min = math.floor((min(skewed) - pad) / 5) * 5
+        self.temp_max = math.ceil((max(skewed) + pad) / 5) * 5
 
         margin_left = 6
         plot_w = self.width - margin_left - 1
