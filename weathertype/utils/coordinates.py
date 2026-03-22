@@ -46,3 +46,32 @@ def geocode_location(name: str) -> Optional[Tuple[float, float, str]]:
 def validate_coordinates(latitude: float, longitude: float) -> bool:
     """Check that lat/lon are within valid ranges."""
     return -90 <= latitude <= 90 and -180 <= longitude <= 180
+
+
+def generate_grid_coordinates(
+    center_lat: float,
+    center_lon: float,
+    radius_km: float = 200.0,
+    grid_size: int = 15,
+) -> tuple:
+    """Generate a grid_size x grid_size grid of lat/lon coordinates.
+
+    Returns (latitudes, longitudes) where latitudes are north-to-south
+    and longitudes are west-to-east.
+    """
+    import math
+
+    # 1 degree latitude ~ 111.32 km
+    lat_delta = radius_km / 111.32
+    # 1 degree longitude varies with latitude
+    lon_delta = radius_km / (111.32 * math.cos(math.radians(center_lat)))
+
+    lats = [
+        center_lat + lat_delta - (2 * lat_delta * i / (grid_size - 1))
+        for i in range(grid_size)
+    ]
+    lons = [
+        center_lon - lon_delta + (2 * lon_delta * i / (grid_size - 1))
+        for i in range(grid_size)
+    ]
+    return (lats, lons)

@@ -8,6 +8,7 @@ Terminal weather visualization tool that displays atmospheric profiles as Skew-T
 - **Hodogram** -- wind profile with altitude-colored segments and speed rings
 - **Meteograph** -- vertical profiles of temperature, dew point, and wind speed
 - **Key parameters** -- LCL, CAPE/CIN, bulk shear, stability index, inversions
+- **Live TUI mode** -- persistent full-screen interface (like `top`/`htop`) with auto-refresh
 - **ANSI color output** with `--no-color` fallback
 - **Auto-scaling** axes to zoom in on actual data
 
@@ -41,6 +42,12 @@ python -m weathertype.main -l Chicago --hour 18
 
 # Disable colors
 python -m weathertype.main -l Chicago --no-color
+
+# Live TUI mode (persistent, auto-refreshing)
+python -m weathertype.main -l Chicago --live
+
+# Live mode with 5-minute refresh interval
+python -m weathertype.main -l Chicago --live --refresh-interval 300
 ```
 
 ## Displays
@@ -80,6 +87,20 @@ Multi-panel time-series display starting from the current hour:
 
 Key meteorological parameters: surface conditions, LCL, potential temperature, equivalent potential temperature, CAPE/CIN, stability classification, inversion layers, bulk shear, and mean wind.
 
+### Live TUI Mode
+
+A persistent full-screen interface using curses. Switch between all views without restarting, with automatic data refresh.
+
+| Key | Action |
+|-----|--------|
+| `1`-`5` | Switch view (Skew-T, Hodogram, Meteograph, Forecast, Summary) |
+| `Tab` / `Shift-Tab` | Cycle views |
+| `j`/`k` or arrows | Scroll |
+| `r` | Force data refresh |
+| `q` | Quit |
+
+Data auto-refreshes at a configurable interval (default: 1 hour). The header shows the last update time, and a "Refreshing..." indicator appears during API calls.
+
 ## Data Source
 
 All weather data comes from the [Open-Meteo API](https://open-meteo.com/) (no API key required). Pressure-level data is fetched for levels: 1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150 hPa.
@@ -101,6 +122,10 @@ weathertype/
     hodogram.py            # Wind hodogram
     meteograph.py          # Vertical profile charts
     forecast.py            # 36-hour forecast timeline
+  tui/
+    app.py                 # Curses TUI application and event loop
+    views.py               # View classes for each visualization
+    ansi_parser.py         # ANSI-to-curses color mapping
   utils/
     units.py               # Unit conversions
     coordinates.py         # Geocoding via Open-Meteo

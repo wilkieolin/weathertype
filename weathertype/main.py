@@ -25,6 +25,11 @@ from weathertype.visualizations.skewt import SkewTPlotter
 from weathertype.visualizations.hodogram import HodogramPlotter
 from weathertype.visualizations.meteograph import MeteographPlotter
 from weathertype.visualizations.forecast import ForecastPlotter
+from weathertype.visualizations.regional_temp import RegionalTempPlotter
+from weathertype.visualizations.regional_pressure import RegionalPressurePlotter
+from weathertype.visualizations.radar import RadarPlotter
+from weathertype.api.regional import RegionalGridClient
+from weathertype.api.rainviewer import RainViewerClient
 
 
 def print_header(profile: WeatherProfile, location_name: str = "") -> None:
@@ -185,6 +190,63 @@ def run_forecast(latitude: float, longitude: float, location_name: str) -> None:
     print()
 
 
+def run_regional_temp(latitude: float, longitude: float, location_name: str) -> None:
+    """Fetch and display regional temperature map."""
+    print(f"Fetching regional temperature data for {location_name}...")
+    client = RegionalGridClient()
+    response = client.get_regional_temperature(latitude, longitude)
+
+    if response.error:
+        print(f"Error: {response.error}", file=sys.stderr)
+        return
+
+    if response.grid is None:
+        print("Error: No regional temperature data available", file=sys.stderr)
+        return
+
+    plotter = RegionalTempPlotter()
+    print(plotter.plot_temperature_map(response.grid))
+    print()
+
+
+def run_regional_pressure(latitude: float, longitude: float, location_name: str) -> None:
+    """Fetch and display regional pressure map."""
+    print(f"Fetching regional pressure data for {location_name}...")
+    client = RegionalGridClient()
+    response = client.get_regional_pressure(latitude, longitude)
+
+    if response.error:
+        print(f"Error: {response.error}", file=sys.stderr)
+        return
+
+    if response.grid is None:
+        print("Error: No regional pressure data available", file=sys.stderr)
+        return
+
+    plotter = RegionalPressurePlotter()
+    print(plotter.plot_pressure_map(response.grid))
+    print()
+
+
+def run_radar(latitude: float, longitude: float, location_name: str) -> None:
+    """Fetch and display radar reflectivity map."""
+    print(f"Fetching radar data for {location_name}...")
+    client = RainViewerClient()
+    response = client.get_radar_data(latitude, longitude)
+
+    if response.error:
+        print(f"Error: {response.error}", file=sys.stderr)
+        return
+
+    if response.radar is None:
+        print("Error: No radar data available", file=sys.stderr)
+        return
+
+    plotter = RadarPlotter()
+    print(plotter.plot_radar(response.radar))
+    print()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="weathertype",
@@ -220,7 +282,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--forecast", action="store_true", help="Show 36-hour forecast"
     )
     display.add_argument(
+        "--regional-temp", action="store_true",
+        help="Show regional temperature map (~200km radius)",
+    )
+    display.add_argument(
+        "--regional-pressure", action="store_true",
+        help="Show regional MSL pressure map (~200km radius)",
+    )
+    display.add_argument(
+        "--radar", action="store_true",
+        help="Show radar reflectivity map (RainViewer)",
+    )
+    display.add_argument(
         "--all", "-a", action="store_true", help="Show all visualizations"
+    )
+    display.add_argument(
+        "--live", action="store_true",
+        help="Launch persistent TUI mode (curses-based, like top/htop)",
     )
 
     parser.add_argument(
@@ -230,6 +308,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-color", action="store_true",
         help="Disable colored output",
+    )
+    parser.add_argument(
+        "--refresh-interval", type=int, default=3600,
+        help="Auto-refresh interval in seconds for --live mode (default: 3600)",
     )
 
     return parser
@@ -270,8 +352,17 @@ def main(argv=None) -> int:
         print("\nError: Specify --location or --lat/--lon", file=sys.stderr)
         return 1
 
-    # If no display flags given, show all
-    show_all = args.all or not any([args.skewt, args.hodogram, args.meteograph, args.summary, args.table, args.forecast])
+    # Launch TUI mode if requested
+    if args.live:
+        from weathertype.tui.app import WeathertypeTUI
+        tui = WeathertypeTUI(latitude, longitude, location_name, args.refresh_interval)
+        return tui.start()
+
+    # If no display flags given, show core visualizations (not regional/radar)
+    show_all = args.all or not any([
+        args.skewt, args.hodogram, args.meteograph, args.summary, args.table,
+        args.forecast, args.regional_temp, args.regional_pressure, args.radar,
+    ])
 
     # Fetch data
     print(f"Fetching weather data for {location_name}...")
@@ -309,6 +400,16 @@ def main(argv=None) -> int:
 
     if show_all or args.forecast:
         run_forecast(latitude, longitude, location_name)
+
+    # Regional/radar plots (only when explicitly requested or --all)
+    if args.all or args.regional_temp:
+        run_regional_temp(latitude, longitude, location_name)
+
+    if args.all or args.regional_pressure:
+        run_regional_pressure(latitude, longitude, location_name)
+
+    if args.all or args.radar:
+        run_radar(latitude, longitude, location_name)
 
     return 0
 

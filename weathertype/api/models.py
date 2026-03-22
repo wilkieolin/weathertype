@@ -101,3 +101,72 @@ class WeatherDataResponse:
     profile: Optional[WeatherProfile] = None
     error: Optional[str] = None
     api_metadata: dict = field(default_factory=dict)
+
+
+@dataclass
+class RegionalGrid:
+    """2D grid of weather data across a geographic region."""
+    center_lat: float
+    center_lon: float
+
+    rows: int
+    cols: int
+
+    latitudes: List[float]    # length=rows, north-to-south
+    longitudes: List[float]   # length=cols, west-to-east
+
+    # Row-major flat list (rows*cols), row 0 = northernmost
+    values: List[Optional[float]] = field(default_factory=list)
+
+    variable_name: str = ""
+    unit: str = ""
+    time: Optional[str] = None
+
+    @property
+    def num_points(self) -> int:
+        return self.rows * self.cols
+
+    def get_value(self, row: int, col: int) -> Optional[float]:
+        return self.values[row * self.cols + col]
+
+    def value_range(self) -> tuple:
+        valid = [v for v in self.values if v is not None]
+        return (min(valid), max(valid)) if valid else (0.0, 0.0)
+
+
+@dataclass
+class RadarData:
+    """Radar reflectivity data from RainViewer."""
+    center_lat: float
+    center_lon: float
+
+    rows: int
+    cols: int
+
+    # dBZ values, row-major, row 0 = north
+    reflectivity: List[Optional[float]] = field(default_factory=list)
+
+    lat_min: float = 0.0
+    lat_max: float = 0.0
+    lon_min: float = 0.0
+    lon_max: float = 0.0
+
+    timestamp: int = 0
+    time_str: Optional[str] = None
+
+    def get_dbz(self, row: int, col: int) -> Optional[float]:
+        return self.reflectivity[row * self.cols + col]
+
+
+@dataclass
+class RegionalGridResponse:
+    grid: Optional[RegionalGrid] = None
+    error: Optional[str] = None
+    api_metadata: dict = field(default_factory=dict)
+
+
+@dataclass
+class RadarDataResponse:
+    radar: Optional[RadarData] = None
+    error: Optional[str] = None
+    api_metadata: dict = field(default_factory=dict)

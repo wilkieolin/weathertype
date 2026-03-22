@@ -26,8 +26,10 @@ def _altitude_color(p: float) -> str:
 class HodogramPlotter:
     """Create wind hodograms in the terminal."""
 
-    def __init__(self, size: int = 31):
-        self.size = size | 1
+    def __init__(self, height: int = 31, size: int = None):
+        h = (size if size is not None else height) | 1
+        self.height = h
+        self.width = 2 * h - 1  # compensate for ~2:1 terminal char aspect ratio
 
     def plot_hodogram(
         self,
@@ -53,42 +55,44 @@ class HodogramPlotter:
         max_extent = max(max(a, b) for a, b in all_uv) if all_uv else 1.0
         max_extent = max(max_extent, 1.0)
 
-        half = self.size // 2
-        scale = (half - 1) / max_extent
+        half_h = self.height // 2
+        half_w = self.width // 2
+        scale_y = (half_h - 1) / max_extent
+        scale_x = (half_w - 1) / max_extent
 
-        grid = [[' '] * self.size for _ in range(self.size)]
-        cx, cy = half, half
+        grid = [[' '] * self.width for _ in range(self.height)]
+        cx, cy = half_w, half_h
 
         # Draw axes (dimmed)
-        for i in range(self.size):
+        for i in range(self.width):
             grid[cy][i] = dim('·') if grid[cy][i] == ' ' else grid[cy][i]
+        for i in range(self.height):
             grid[i][cx] = dim('·') if grid[i][cx] == ' ' else grid[i][cx]
         grid[cy][cx] = dim('+')
 
         # Speed rings (dimmed)
         ring_interval = 10  # m/s
         for r_ms in range(ring_interval, int(max_extent) + ring_interval, ring_interval):
-            r_px = int(r_ms * scale)
-            for angle in range(0, 360, 3):
+            for angle in range(0, 360, 2):
                 rad = math.radians(angle)
-                col = cx + int(r_px * math.cos(rad))
-                row = cy - int(r_px * math.sin(rad))
-                if 0 <= col < self.size and 0 <= row < self.size:
+                col = cx + int(r_ms * scale_x * math.cos(rad))
+                row = cy - int(r_ms * scale_y * math.sin(rad))
+                if 0 <= col < self.width and 0 <= row < self.height:
                     vc = visible_char(grid[row][col])
                     if vc in (' ', '·'):
                         grid[row][col] = dim('·')
 
         # Cardinal direction labels (colored)
         grid[0][cx] = cyan('N')
-        grid[self.size - 1][cx] = red('S')
+        grid[self.height - 1][cx] = red('S')
         grid[cy][0] = green('W')
-        grid[cy][self.size - 1] = yellow('E')
+        grid[cy][self.width - 1] = yellow('E')
 
         # Plot connected hodogram curve with altitude coloring
         prev_col, prev_row = None, None
         for i, (u, v, p, spd, dirn) in enumerate(uv_points):
-            col = cx + int(u * scale)
-            row = cy - int(v * scale)
+            col = cx + int(u * scale_x)
+            row = cy - int(v * scale_y)
             color = _altitude_color(p)
 
             if prev_col is not None:
@@ -96,21 +100,21 @@ class HodogramPlotter:
                 for s in range(1, steps):
                     ic = prev_col + int((col - prev_col) * s / steps)
                     ir = prev_row + int((row - prev_row) * s / steps)
-                    if 0 <= ic < self.size and 0 <= ir < self.size:
+                    if 0 <= ic < self.width and 0 <= ir < self.height:
                         vc = visible_char(grid[ir][ic])
                         if vc in (' ', '·'):
                             grid[ir][ic] = colorize('-', color)
 
-            if 0 <= col < self.size and 0 <= row < self.size:
+            if 0 <= col < self.width and 0 <= row < self.height:
                 grid[row][col] = colorize('*', color)
 
             prev_col, prev_row = col, row
 
         # Output
         lines = []
-        lines.append("=" * self.size)
-        lines.append(bold("HODOGRAM").center(self.size + 8))
-        lines.append("=" * self.size)
+        lines.append("=" * self.width)
+        lines.append(bold("HODOGRAM").center(self.width + 8))
+        lines.append("=" * self.width)
         for row in grid:
             lines.append(''.join(row))
 
