@@ -300,6 +300,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--live", action="store_true",
         help="Launch persistent TUI mode (curses-based, like top/htop)",
     )
+    display.add_argument(
+        "--tek", action="store_true",
+        help="Output in Tektronix 4014 vector format (use with tek4010 emulator)",
+    )
 
     parser.add_argument(
         "--hour", type=int, default=None,
@@ -357,6 +361,21 @@ def main(argv=None) -> int:
         from weathertype.tui.app import WeathertypeTUI
         tui = WeathertypeTUI(latitude, longitude, location_name, args.refresh_interval)
         return tui.start()
+
+    # Launch Tek 4014 interactive mode if requested
+    if args.tek:
+        print(f"Fetching weather data for {location_name}...")
+        client = OpenMeteoClient()
+        response = client.get_weather_profile(latitude, longitude, forecast_hour=args.hour)
+        if response.error:
+            print(f"Error: {response.error}", file=sys.stderr)
+            return 1
+        profile = response.profile
+        if profile is None or profile.num_levels == 0:
+            print("Error: No weather data available", file=sys.stderr)
+            return 1
+        from weathertype.tek4010.interactive import run_interactive
+        return run_interactive(profile, location_name)
 
     # If no display flags given, show core visualizations (not regional/radar)
     show_all = args.all or not any([
